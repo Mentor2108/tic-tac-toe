@@ -13,8 +13,6 @@ const restartButton = document.getElementById('restartButton');
 const gameRoomTitle = document.querySelector('.modal-header-title')
 const joinButton = document.getElementById('joinRoom')
 const sendButton = document.getElementById('send')
-// const voiceCommandButton = document.getElementById('voiceCommand')
-// const voiceCommandStatus = document.getElementById('status')
 const X_CLASS = 'x';
 const CIRCLE_CLASS = 'circle';
 const WINNING_COMBINATIONS = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
@@ -183,8 +181,14 @@ document.addEventListener("DOMContentLoaded", function (event) {
     socket.on("voice_status", (data) => {
       console.log("hello", data, "client id", clientId)
       if (data.playerId === clientId) {  // Only update if event is for this player
-        console.log("i worked ")
-        document.getElementById('status').textContent = data.status;
+        const currStatus = document.getElementById('status').textContent;
+        if (data.status == "🎙 Speak now!") {
+          document.getElementById('status').textContent = currStatus + "\r\n"+data.status;
+        } else {
+          document.getElementById('status').textContent = data.status;
+        }
+      } else {
+        document.getElementById('status').textContent = "Please wait for your opponent's turn.";
       }
     });
 
@@ -207,20 +211,22 @@ document.addEventListener("DOMContentLoaded", function (event) {
   // emited events: startGame(msg)
   startGameButton.addEventListener('click', function () {
     socket.emit('startGame', { 'clientId': clientId });
+    socket.emit('voice_command', { 'playerId': clientId });
   })
 
-  document.getElementById('voiceCommand').addEventListener('click', function () {
-    if (clientId === activeId) {
-      socket.emit('voice_command', { 'playerId': clientId });
-    } else {
-      document.getElementById('status').textContent = "❌ Please Wait for your turn!";
-    }
-  })
+  // document.getElementById('voiceCommand').addEventListener('click', function () {
+  //   if (clientId === activeId) {
+  //     socket.emit('voice_command', { 'playerId': clientId });
+  //   } else {
+  //     document.getElementById('status').textContent = "❌ Please Wait for your turn!";
+  //   }
+  // })
 
   // event(4): send restart intention to server
   // emited events: restartGame(msg) intention
   restartButton.addEventListener('click', function () {
     socket.emit('startGame', { 'clientId': clientId });
+    socket.emit('voice_command', { 'playerId': clientId });
     // startGame()
   });
 
@@ -235,7 +241,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
       cell.removeEventListener('click', handleTurn);
       cell.addEventListener('click', handleTurn);
 
-      document.getElementById('voiceCommand').toggleAttribute("hidden", false);
+      // document.getElementById('voiceCommand').toggleAttribute("hidden", false);
       document.getElementById('status').toggleAttribute("hidden", false);
     })
     let playerMark = (clientId == 0) ? true : false;

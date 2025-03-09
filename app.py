@@ -21,8 +21,8 @@ activeGamingRooms = []
 connectetToPortalUsers = []
 
 word_to_num = {
-    "one": 1, "two": 2, "three": 3, "four": 4, "for": 4, "five": 5, # adding 'for' as a recognisition as a error for four
-    "six": 6, "seven": 7, "eight": 8, "nine": 9, 
+    "one": 1, "to": 2, "two": 2, "three": 3, "four": 4, "for": 4, "five": 5, # adding 'to, 'for', 'sex' as a recognisition as a error for 2, 4 and 6
+    "six": 6, "sex": 6, "seven": 7, "eight": 8, "nine": 9, 
 }
 
 # ! server-client communication
@@ -68,7 +68,6 @@ def checkGameRoom(data):
     else:
         if activeGamingRooms[roomIdx].roomAvailable():
             activeGamingRooms[roomIdx].add_player(connectetToPortalUsers[userIdx])
-            
             join_room( data['room'])
             emit('tooManyPlayers', 'go', to=request.sid)
         else:
@@ -124,6 +123,8 @@ def startGame(message):
     started = activeGamingRooms[roomIdx].get_ready_for_game()
 
     activePlayer = activeGamingRooms[roomIdx].get_rand_active_player()
+    activeGamingRooms[roomIdx].activePlayer = activePlayer
+
     if (started):
         emit('start', {'activePlayer':activePlayer, 'started': started}, to=session['room'])
     else:
@@ -145,6 +146,8 @@ def turn(data):
       
     # ! TODO set the fields
     # notify all clients that turn happend and over the next active id
+    activeGamingRooms[roomIdx].activePlayer = activePlayer
+    print(f"active player changed to {activePlayer}")
     emit('turn', {'recentPlayer':data['player'], 'lastPos': data['pos'], 'next':activePlayer}, to=session['room'])
 
 # ################# handler(3.1) #################
@@ -159,44 +162,62 @@ def game_status(msg):
     
     print(msg['status'])
 
+def get_voice_input(recognizer, source, playerId):
+
+    # print(f"🎙 Player {playerId} started speaking...")
+    # socketio.emit("voice_status", {"playerId": playerId, "status": "🎤 Setting up mic..."})
+    
+    socketio.emit("voice_status", {"playerId": playerId, "status": "🎙 Speak now!"})
+    try:
+        audio = recognizer.listen(source, timeout=3, phrase_time_limit=4)  # Listen for atleast 3 sec, upto 4 seconds
+        socketio.emit("voice_status", {"playerId": playerId, "status": "✅ Processing voice..."})
+
+        # Convert speech to text
+        voice_input = recognizer.recognize_google(audio).lower()
+        print(f"✅ Player {playerId} said: {voice_input}")
+        move = extract_number(voice_input)
+        if move is not None and move in range(1, 10):
+            return move
+            # Send an event that the current move is played via voice
+            # socketio.emit("voice_turn", {'lastPos': move})                
+            # Inform the user in status what the current move is
+            # socketio.emit("voice_status", {"playerId": playerId, "status": f"✅ Your move: '{move}'"})
+        else:
+            socketio.emit("voice_status", {"playerId": playerId, "status": f"❌ Invalid move: '{move}'. Please say a valid move between 1-9!"})
+
+    except sr.UnknownValueError:
+        print(f"⚠ Player {playerId} speech not recognized.")
+        socketio.emit("voice_status", {"playerId": playerId, "status": "⚠ Could not recognize. Try again!"})
+    except sr.RequestError:
+        print(f"⚠ Player {playerId} recognition service error.")
+        socketio.emit("voice_status", {"playerId": playerId, "status": "⚠ Recognition error. Try again!"})
+    except sr.WaitTimeoutError :
+        print(f"⚠ Player {playerId} speech timeout.")
+        socketio.emit("voice_status", {"playerId": playerId, "status": "⚠ Could not recognize. Try again!"})
+
+
 @socketio.on('voice_command')
 def speak_input(data):
-    recognizer = sr.Recognizer()
+    global activeGamingRooms
+    roomIdx = getRoomIdx(activeGamingRooms, session['room'])
+
     playerId = data["playerId"]
-    
+    print(f"🎙 Enabling mic for {playerId}...")
+    recognizer = sr.Recognizer()
     with sr.Microphone() as source:
-        print(f"🎙 Player {playerId} started speaking...")
-        socketio.emit("voice_status", {"playerId": playerId, "status": "🎤 Setting up mic..."})
-        
-        recognizer.adjust_for_ambient_noise(source, duration=0.5)
-        
-        socketio.emit("voice_status", {"playerId": playerId, "status": "🎙 Speak now!"})
-        try:
-            audio = recognizer.listen(source, timeout=3, phrase_time_limit=5)  # Listen for atleast 3 sec, upto 5 seconds
-            socketio.emit("voice_status", {"playerId": playerId, "status": "✅ Processing voice..."})
+        recognizer.adjust_for_ambient_noise(source)
+        while True:
+            if (playerId == activeGamingRooms[roomIdx].activePlayer):
+                # print(f"my current: {playerId} active player later: {activeGamingRooms[roomIdx].activePlayer}")
+                voice_input = get_voice_input(recognizer, source, playerId)
 
-            # Convert speech to text
-            voice_input = recognizer.recognize_google(audio).lower()
-            print(f"✅ Player {playerId} said: {voice_input}")
-            move = extract_number(voice_input)
-            if move is not None and move in range(1, 10):
-
-                # Send an event that the current move is played via voice
-                socketio.emit("voice_turn", {'lastPos': move})                
-                # Inform the user in status what the current move is
-                socketio.emit("voice_status", {"playerId": playerId, "status": f"✅ Your move: '{move}'"})
-            else:
-                socketio.emit("voice_status", {"playerId": playerId, "status": f"❌ Invalid move: '{move}'. Please say a valid move between 1-9!"})
-
-        except sr.UnknownValueError:
-            print(f"⚠ Player {playerId} speech not recognized.")
-            socketio.emit("voice_status", {"playerId": playerId, "status": "⚠ Could not recognize. Try again!"})
-        except sr.RequestError:
-            print(f"⚠ Player {playerId} recognition service error.")
-            socketio.emit("voice_status", {"playerId": playerId, "status": "⚠ Recognition error. Try again!"})
-        except sr.WaitTimeoutError :
-            print(f"⚠ Player {playerId} speech timeout.")
-            socketio.emit("voice_status", {"playerId": playerId, "status": "⚠ Could not recognize. Try again!"})
+                if voice_input == None:
+                    continue
+                else:
+                    # Send an event that the current move is played via voice
+                    socketio.emit("voice_turn", {'lastPos': voice_input})                
+                    # Inform the user in status what the current move is
+                    socketio.emit("voice_status", {"playerId": playerId, "status": f"✅ Your move: '{voice_input}'"})
 
 # get key by value from a dict
 def getKeybyValue(obj, value):

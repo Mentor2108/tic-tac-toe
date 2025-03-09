@@ -175,26 +175,6 @@ main{
   width: 100%;
 }
 
-#voiceCommand {
-  background-color: white;
-  padding: .25em .5em;
-  cursor: pointer;
-  border-radius: 8px;
-  background-color: #555555;
-  color: #fff;
-  font-weight: bold;
-  padding: 14px 16px;
-  border: 1px solid #dddfe2;
-  font-size: 17px;
-  width: 25%;
-}
-
-#voiceCommandIcon {
-  width: 20px; /* Adjust image size */
-  height: 20px;
-  object-fit: contain; 
-}
-
 .messaging-view button:focus {
   border-color: #1877f2;
   box-shadow: 0 0 0 2px #e7f3ff;
