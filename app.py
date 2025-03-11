@@ -39,7 +39,7 @@ def connect():
     player = Player(request.sid)
     connectetToPortalUsers.append(player)
     
-    socketio.emit('connection-established', 'go', to=request.sid)
+    emit('connection-established', 'go', to=request.sid)
 
 
 @socketio.on('check-game-room')
@@ -63,19 +63,19 @@ def checkGameRoom(data):
         
         # join socketIO gameroom
         join_room( data['room'])
-        socketio.emit('tooManyPlayers', 'go', to=request.sid)
+        emit('tooManyPlayers', 'go', to=request.sid)
 
     else:
         if activeGamingRooms[roomIdx].roomAvailable():
             activeGamingRooms[roomIdx].add_player(connectetToPortalUsers[userIdx])
             join_room( data['room'])
-            socketio.emit('tooManyPlayers', 'go', to=request.sid)
+            emit('tooManyPlayers', 'go', to=request.sid)
         else:
             # print local to server console
             print('Too many players tried to join!')
             # send to client
             
-            socketio.emit('tooManyPlayers', 'tooCrowdy', to=request.sid)
+            emit('tooManyPlayers', 'tooCrowdy', to=request.sid)
             disconnect()
             return
     
@@ -92,9 +92,9 @@ def readyToStart():
     playerId = activeGamingRooms[roomIdx].getPlayerIdx(request.sid)
     onlineClients = activeGamingRooms[roomIdx].getClientsInRoom('byName')
     
-    socketio.emit('clientId', (playerId, session.get('room')))
-    socketio.emit('connected-Players', [onlineClients], to=session['room'])
-    socketio.emit('status', {'clientsNbs': len(onlineClients), 'clientId': request.sid}, to=session['room'])
+    emit('clientId', (playerId, session.get('room')))
+    emit('connected-Players', [onlineClients], to=session['room'])
+    emit('status', {'clientsNbs': len(onlineClients), 'clientId': request.sid}, to=session['room'])
 
 # #######
 
@@ -104,7 +104,7 @@ def readyToStart():
 # emited events: player message(msg)
 @socketio.event
 def my_broadcast_event(message):
-    socketio.emit('player message',
+    emit('player message',
          {'data': message['data'], 'sender':message['sender']}, to=session['room'])
 
 # ! CHAT BETWEEN PLAYERS
@@ -123,13 +123,14 @@ def startGame(message):
     started = activeGamingRooms[roomIdx].get_ready_for_game()
 
     activePlayer = activeGamingRooms[roomIdx].get_rand_active_player()
-    activeGamingRooms[roomIdx].activePlayer = activePlayer
 
     if (started):
-        socketio.emit('start', {'activePlayer':activePlayer, 'started': started}, to=session['room'])
-        speak_input(data={ 'playerId': activePlayer})
+        emit('start', {'activePlayer':activePlayer, 'started': started}, to=session['room'])
+        data={ 'playerId': activePlayer}
+        emit('voice_start', data)
+        # threading.Thread(target=speak_input, args=(data)).start()
     else:
-        socketio.emit('waiting second player start', to=session['room'])
+        emit('waiting second player start', to=session['room'])
 
 # ################# handler(3) #################
 # start the game when 2 players pressed the Start button
@@ -141,15 +142,16 @@ def turn(data):
 
     activePlayer = activeGamingRooms[roomIdx].get_swap_player()
 
-
     # global activePlayer
     print('turn by {}: position {}'.format(data['player'], data['pos']))
       
     # ! TODO set the fields
     # notify all clients that turn happend and over the next active id
     print(f"active player changed to {activePlayer}")
-    speak_input(data={ 'playerId': activePlayer })
-    socketio.emit('turn', {'recentPlayer':data['player'], 'lastPos': data['pos'], 'next':activePlayer}, to=session['room'])
+    emit('turn', {'recentPlayer':data['player'], 'lastPos': data['pos'], 'next':activePlayer}, to=session['room'])
+    data={ 'playerId': activePlayer}
+    emit('voice_start', data)
+    # threading.Thread(target=speak_input, args=(data)).start()
 
 # ################# handler(3.1) #################
 # information about game status
@@ -213,6 +215,7 @@ def speak_input(data):
 
     mic = sr.Microphone()
     with mic as source:
+        socketio.emit("voice_status", {"playerId": playerId, "status": "🎤 Setting up mic..."})
         recognizer.adjust_for_ambient_noise(source, duration=0.5)
 
     # activeGamingRooms[roomIdx].mics[-1] = recognizer.listen_in_background(mic, get_voice_input)
