@@ -45,8 +45,6 @@ class GameRoom():
         self.onlineClients = []
         self.gameRound = None
         self.activePlayer = 0
-        self.micOwner = None
-        self.mics = {}
     
     def add_player(self, objPlayer):
         self.onlineClients.append(objPlayer)

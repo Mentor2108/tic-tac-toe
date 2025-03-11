@@ -39,7 +39,7 @@ def connect():
     player = Player(request.sid)
     connectetToPortalUsers.append(player)
     
-    emit('connection-established', 'go', to=request.sid)
+    socketio.emit('connection-established', 'go', to=request.sid)
 
 
 @socketio.on('check-game-room')
@@ -63,19 +63,19 @@ def checkGameRoom(data):
         
         # join socketIO gameroom
         join_room( data['room'])
-        emit('tooManyPlayers', 'go', to=request.sid)
+        socketio.emit('tooManyPlayers', 'go', to=request.sid)
 
     else:
         if activeGamingRooms[roomIdx].roomAvailable():
             activeGamingRooms[roomIdx].add_player(connectetToPortalUsers[userIdx])
             join_room( data['room'])
-            emit('tooManyPlayers', 'go', to=request.sid)
+            socketio.emit('tooManyPlayers', 'go', to=request.sid)
         else:
             # print local to server console
             print('Too many players tried to join!')
             # send to client
             
-            emit('tooManyPlayers', 'tooCrowdy', to=request.sid)
+            socketio.emit('tooManyPlayers', 'tooCrowdy', to=request.sid)
             disconnect()
             return
     
@@ -92,9 +92,9 @@ def readyToStart():
     playerId = activeGamingRooms[roomIdx].getPlayerIdx(request.sid)
     onlineClients = activeGamingRooms[roomIdx].getClientsInRoom('byName')
     
-    emit('clientId', (playerId, session.get('room')))
-    emit('connected-Players', [onlineClients], to=session['room'])
-    emit('status', {'clientsNbs': len(onlineClients), 'clientId': request.sid}, to=session['room'])
+    socketio.emit('clientId', (playerId, session.get('room')))
+    socketio.emit('connected-Players', [onlineClients], to=session['room'])
+    socketio.emit('status', {'clientsNbs': len(onlineClients), 'clientId': request.sid}, to=session['room'])
 
 # #######
 
@@ -104,7 +104,7 @@ def readyToStart():
 # emited events: player message(msg)
 @socketio.event
 def my_broadcast_event(message):
-    emit('player message',
+    socketio.emit('player message',
          {'data': message['data'], 'sender':message['sender']}, to=session['room'])
 
 # ! CHAT BETWEEN PLAYERS
@@ -126,10 +126,10 @@ def startGame(message):
     activeGamingRooms[roomIdx].activePlayer = activePlayer
 
     if (started):
-        emit('start', {'activePlayer':activePlayer, 'started': started}, to=session['room'])
+        socketio.emit('start', {'activePlayer':activePlayer, 'started': started}, to=session['room'])
         speak_input(data={ 'playerId': activePlayer})
     else:
-        emit('waiting second player start', to=session['room'])
+        socketio.emit('waiting second player start', to=session['room'])
 
 # ################# handler(3) #################
 # start the game when 2 players pressed the Start button
@@ -149,7 +149,7 @@ def turn(data):
     # notify all clients that turn happend and over the next active id
     print(f"active player changed to {activePlayer}")
     speak_input(data={ 'playerId': activePlayer })
-    emit('turn', {'recentPlayer':data['player'], 'lastPos': data['pos'], 'next':activePlayer}, to=session['room'])
+    socketio.emit('turn', {'recentPlayer':data['player'], 'lastPos': data['pos'], 'next':activePlayer}, to=session['room'])
 
 # ################# handler(3.1) #################
 # information about game status
