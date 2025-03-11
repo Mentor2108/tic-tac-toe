@@ -157,7 +157,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
       }
       cellElements[turn['lastPos'] - 1].removeEventListener('click', handleTurn);
       cellElements[turn['lastPos'] - 1].addEventListener('click', wrongSelection);
-      document.getElementById('status').textContent = "🎤 Click mic to speak";
+      document.getElementById('status').textContent = "🎤 Your turn! Speak or choose your position.";
       activeId = turn['next'];
     });
 
@@ -182,7 +182,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
       console.log("hello", data, "client id", clientId)
       if (data.playerId === clientId) {  // Only update if event is for this player
         const currStatus = document.getElementById('status').textContent;
-        if (data.status == "🎙 Speak now!") {
+        if (data.status == "🎙 Speak now!" && currStatus != "🎤 Setting up mic...") {
           document.getElementById('status').textContent = currStatus + "\r\n"+data.status;
         } else {
           document.getElementById('status').textContent = data.status;
@@ -194,9 +194,15 @@ document.addEventListener("DOMContentLoaded", function (event) {
 
     socket.on("voice_turn", (turn) => {
       cellElements[turn['lastPos'] - 1].click()
+      if (cellElements[turn['lastPos'] - 1].hasAttribute(CIRCLE_CLASS) || cellElements[turn['lastPos'] - 1].hasAttribute(X_CLASS)) {
+        socket.emit("voice_command", { 'playerId': clientId })
+      } 
       // placeMark(cellElements[turn['lastPos']-1], currentMark);
     });
 
+    socket.on("voice_start", (data) => {
+      socket.emit("voice_command", data)
+    });
 
     //});  // END of event.on('user-connected')
 
@@ -211,7 +217,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
   // emited events: startGame(msg)
   startGameButton.addEventListener('click', function () {
     socket.emit('startGame', { 'clientId': clientId });
-    socket.emit('voice_command', { 'playerId': clientId });
+    // socket.emit('voice_command', { 'playerId': clientId });
   })
 
   // document.getElementById('voiceCommand').addEventListener('click', function () {
@@ -226,7 +232,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
   // emited events: restartGame(msg) intention
   restartButton.addEventListener('click', function () {
     socket.emit('startGame', { 'clientId': clientId });
-    socket.emit('voice_command', { 'playerId': clientId });
+    // socket.emit('voice_command', { 'playerId': clientId });
     // startGame()
   });
 

@@ -123,10 +123,12 @@ def startGame(message):
     started = activeGamingRooms[roomIdx].get_ready_for_game()
 
     activePlayer = activeGamingRooms[roomIdx].get_rand_active_player()
-    activeGamingRooms[roomIdx].activePlayer = activePlayer
 
     if (started):
         emit('start', {'activePlayer':activePlayer, 'started': started}, to=session['room'])
+        data={ 'playerId': activePlayer}
+        emit('voice_start', data)
+        # threading.Thread(target=speak_input, args=(data)).start()
     else:
         emit('waiting second player start', to=session['room'])
 
@@ -140,15 +142,16 @@ def turn(data):
 
     activePlayer = activeGamingRooms[roomIdx].get_swap_player()
 
-
     # global activePlayer
     print('turn by {}: position {}'.format(data['player'], data['pos']))
       
     # ! TODO set the fields
     # notify all clients that turn happend and over the next active id
-    activeGamingRooms[roomIdx].activePlayer = activePlayer
     print(f"active player changed to {activePlayer}")
     emit('turn', {'recentPlayer':data['player'], 'lastPos': data['pos'], 'next':activePlayer}, to=session['room'])
+    data={ 'playerId': activePlayer}
+    emit('voice_start', data)
+    # threading.Thread(target=speak_input, args=(data)).start()
 
 # ################# handler(3.1) #################
 # information about game status
@@ -168,8 +171,8 @@ def get_voice_input(recognizer, source, playerId):
     # socketio.emit("voice_status", {"playerId": playerId, "status": "🎤 Setting up mic..."})
     
     socketio.emit("voice_status", {"playerId": playerId, "status": "🎙 Speak now!"})
-    try:
-        audio = recognizer.listen(source, timeout=3, phrase_time_limit=4)  # Listen for atleast 3 sec, upto 4 seconds
+    try:    
+        audio = recognizer.listen(source, timeout=3, phrase_time_limit=3)  # Listen for atleast 3 sec, upto 4 seconds
         socketio.emit("voice_status", {"playerId": playerId, "status": "✅ Processing voice..."})
 
         # Convert speech to text
@@ -202,12 +205,22 @@ def speak_input(data):
     roomIdx = getRoomIdx(activeGamingRooms, session['room'])
 
     playerId = data["playerId"]
+
+    if activeGamingRooms[roomIdx].activePlayer != playerId:
+        print(f"did not enable mic for {playerId}...")
+        return
+
     print(f"🎙 Enabling mic for {playerId}...")
     recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        recognizer.adjust_for_ambient_noise(source)
+
+    mic = sr.Microphone()
+    with mic as source:
+        socketio.emit("voice_status", {"playerId": playerId, "status": "🎤 Setting up mic..."})
+        recognizer.adjust_for_ambient_noise(source, duration=0.5)
+
+    # activeGamingRooms[roomIdx].mics[-1] = recognizer.listen_in_background(mic, get_voice_input)
         while True:
-            if (playerId == activeGamingRooms[roomIdx].activePlayer):
+            if (activeGamingRooms[roomIdx] is not None and playerId == activeGamingRooms[roomIdx].activePlayer):
                 # print(f"my current: {playerId} active player later: {activeGamingRooms[roomIdx].activePlayer}")
                 voice_input = get_voice_input(recognizer, source, playerId)
 
@@ -218,6 +231,11 @@ def speak_input(data):
                     socketio.emit("voice_turn", {'lastPos': voice_input})                
                     # Inform the user in status what the current move is
                     socketio.emit("voice_status", {"playerId": playerId, "status": f"✅ Your move: '{voice_input}'"})
+                    print(f"closing mic for {playerId}...")
+                    return
+            else:
+                print(f"closing mic for {playerId}...")
+                return
 
 # get key by value from a dict
 def getKeybyValue(obj, value):
@@ -282,4 +300,5 @@ def disconnect():
 
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    # socketio.run(app, debug=True)
+    socketio.run(app, debug=False, )
