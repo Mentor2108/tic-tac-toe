@@ -211,7 +211,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
   // emited events: startGame(msg)
   startGameButton.addEventListener('click', function () {
     socket.emit('startGame', { 'clientId': clientId });
-    socket.emit('voice_command', { 'playerId': clientId });
+    // socket.emit('voice_command', { 'playerId': clientId });
   })
 
   // document.getElementById('voiceCommand').addEventListener('click', function () {
@@ -226,7 +226,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
   // emited events: restartGame(msg) intention
   restartButton.addEventListener('click', function () {
     socket.emit('startGame', { 'clientId': clientId });
-    socket.emit('voice_command', { 'playerId': clientId });
+    // socket.emit('voice_command', { 'playerId': clientId });
     // startGame()
   });
 
